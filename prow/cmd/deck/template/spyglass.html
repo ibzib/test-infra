@@ -12,9 +12,10 @@
 
 {{define "content"}}
 {{$source:=.Source}}
-{{if .JobHistLink}}
-<h4>&nbsp;<a href="{{.JobHistLink}}">Job History</a></h4>
-{{end}}
+<h4>
+{{if .JobHistLink}}&nbsp;<a href="{{.JobHistLink}}">Job History</a>{{end}}
+{{if .PRHistLink}} || <a href="{{.PRHistLink}}">PR History</a>{{end}}
+</h4>
 <div id="lens-container">
   {{range .Lenses}}
   <div class="mdl-card mdl-shadow--2dp lens-card">
