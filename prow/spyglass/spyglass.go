@@ -18,16 +18,17 @@ limitations under the License.
 package spyglass
 
 import (
-	"cloud.google.com/go/storage"
 	"fmt"
+	"path"
+	"sort"
+	"strings"
+
+	"cloud.google.com/go/storage"
 	"github.com/sirupsen/logrus"
 	"k8s.io/test-infra/prow/config"
 	"k8s.io/test-infra/prow/deck/jobs"
 	"k8s.io/test-infra/prow/kube"
 	"k8s.io/test-infra/prow/spyglass/lenses"
-	"path"
-	"sort"
-	"strings"
 )
 
 // Key types specify the way Spyglass will fetch artifact handles
@@ -149,4 +150,55 @@ func (s *Spyglass) JobPath(src string) (string, error) {
 	default:
 		return "", fmt.Errorf("unrecognized key type for src: %v", src)
 	}
+}
+
+// GetPR returns the org, repo, and pr number for Spyglass sources pointing to presubmit jobs
+func (s *Spyglass) GetPR(src string) (org, repo string, pr int, err error) {
+	src = strings.TrimSuffix(src, "/")
+	keyType, key, err := splitSrc(src)
+	if err != nil {
+		err = fmt.Errorf("error parsing src: %v", src)
+		return
+	}
+	jobName := ""
+	buildID := ""
+	switch keyType {
+	case gcsKeyType:
+		parts := strings.Split(key, "/")
+		if len(parts) < 2 {
+			err = fmt.Errorf("invalid gcs key: %s", key)
+			return
+		}
+		jobName = parts[len(parts)-2]
+		buildID = parts[len(parts)-1]
+	case prowKeyType:
+		parsed := strings.Split(key, "/")
+		if len(parsed) != 2 {
+			err = fmt.Errorf("invalid prow key: %s", key)
+			return
+		}
+		jobName = parsed[0]
+		buildID = parsed[1]
+	default:
+		err = fmt.Errorf("unrecognized key type for src: %v", src)
+		return
+	}
+
+	job, err := s.jobAgent.GetProwJob(jobName, buildID)
+	if err != nil {
+		err = fmt.Errorf("failed to get prow job %s/%s: %v", jobName, buildID, err)
+		return
+	}
+	if len(job.Spec.Refs.Pulls) == 0 {
+		err = fmt.Errorf("no refs found for job %s", job.Name)
+		return
+	}
+	if len(job.Spec.Refs.Pulls) > 1 {
+		err = fmt.Errorf("pr history dashboard doesn't support batch jobs (yet)")
+		return
+	}
+	org = job.Spec.Refs.Org
+	repo = job.Spec.Refs.Repo
+	pr = job.Spec.Refs.Pulls[0].Number
+	return
 }
