@@ -602,9 +602,14 @@ func renderSpyglass(sg *spyglass.Spyglass, ca *config.Agent, src string, o optio
 		jobHistLink = path.Join("/job-history", jobPath)
 	}
 
+	prLink := ""
 	prHistLink := ""
+	prLinkText := ""
 	org, repo, pr, err := sg.GetPR(src)
 	if err == nil {
+		// TODO make link host/format configurable (along with other such links in Deck)
+		prLink = fmt.Sprintf("https://github.com/%s/%s/pull/%d", org, repo, pr)
+		prLinkText = fmt.Sprintf("%s/%s #%d", org, repo, pr)
 		prHistLink = fmt.Sprintf("/pr-history/%s/%s/%d", org, repo, pr)
 	}
 
@@ -615,6 +620,8 @@ func renderSpyglass(sg *spyglass.Spyglass, ca *config.Agent, src string, o optio
 		Source        string
 		LensArtifacts map[string][]string
 		JobHistLink   string
+		PRLink        string
+		PRLinkText    string
 		PRHistLink    string
 	}
 	lTmpl := lensesTemplate{
@@ -623,6 +630,8 @@ func renderSpyglass(sg *spyglass.Spyglass, ca *config.Agent, src string, o optio
 		Source:        src,
 		LensArtifacts: viewerCache,
 		JobHistLink:   jobHistLink,
+		PRLink:        prLink,
+		PRLinkText:    prLinkText,
 		PRHistLink:    prHistLink,
 	}
 	t := template.New("spyglass.html")
