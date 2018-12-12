@@ -596,6 +596,11 @@ func renderSpyglass(sg *spyglass.Spyglass, ca *config.Agent, src string, o optio
 		lensNames = append(lensNames, l.Name())
 	}
 
+	jobName, buildID, err := sg.JobInfo(src)
+	if err != nil {
+		return "", fmt.Errorf("error getting job name/id: %v", err)
+	}
+
 	jobHistLink := ""
 	jobPath, err := sg.JobPath(src)
 	if err == nil {
@@ -620,6 +625,8 @@ func renderSpyglass(sg *spyglass.Spyglass, ca *config.Agent, src string, o optio
 		Source        string
 		LensArtifacts map[string][]string
 		JobHistLink   string
+		JobName       string
+		BuildID       string
 		PRLink        string
 		PRLinkText    string
 		PRHistLink    string
@@ -630,6 +637,8 @@ func renderSpyglass(sg *spyglass.Spyglass, ca *config.Agent, src string, o optio
 		Source:        src,
 		LensArtifacts: viewerCache,
 		JobHistLink:   jobHistLink,
+		JobName:       jobName,
+		BuildID:       buildID,
 		PRLink:        prLink,
 		PRLinkText:    prLinkText,
 		PRHistLink:    prHistLink,
