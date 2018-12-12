@@ -152,16 +152,14 @@ func (s *Spyglass) JobPath(src string) (string, error) {
 	}
 }
 
-// GetPR returns the org, repo, and pr number for Spyglass sources pointing to presubmit jobs
-func (s *Spyglass) GetPR(src string) (org, repo string, pr int, err error) {
+// JobInfo returns the job name and build ID for a Spyglass source
+func (s *Spyglass) JobInfo(src string) (jobName, buildID string, err error) {
 	src = strings.TrimSuffix(src, "/")
 	keyType, key, err := splitSrc(src)
 	if err != nil {
 		err = fmt.Errorf("error parsing src: %v", src)
 		return
 	}
-	jobName := ""
-	buildID := ""
 	switch keyType {
 	case gcsKeyType:
 		parts := strings.Split(key, "/")
@@ -181,9 +179,16 @@ func (s *Spyglass) GetPR(src string) (org, repo string, pr int, err error) {
 		buildID = parsed[1]
 	default:
 		err = fmt.Errorf("unrecognized key type for src: %v", src)
-		return
 	}
+	return
+}
 
+// GetPR returns the org, repo, and pr number for Spyglass sources pointing to presubmit jobs
+func (s *Spyglass) GetPR(src string) (org, repo string, pr int, err error) {
+	jobName, buildID, err := s.JobInfo(src)
+	if err != nil {
+		err = fmt.Errorf("failed to get job name/id: %v", err)
+	}
 	job, err := s.jobAgent.GetProwJob(jobName, buildID)
 	if err != nil {
 		err = fmt.Errorf("failed to get prow job %s/%s: %v", jobName, buildID, err)
