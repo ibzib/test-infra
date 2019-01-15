@@ -17,6 +17,8 @@ limitations under the License.
 package trigger
 
 import (
+	"fmt"
+
 	"k8s.io/test-infra/prow/github"
 	"k8s.io/test-infra/prow/kube"
 	"k8s.io/test-infra/prow/pjutil"
@@ -42,6 +44,16 @@ func listPushEventChanges(pe github.PushEvent) []string {
 	return changedFiles
 }
 
+func createRefs(pe github.PushEvent) kube.Refs {
+	return kube.Refs{
+		Org:      pe.Repo.Owner.Name,
+		Repo:     pe.Repo.Name,
+		BaseRef:  pe.Branch(),
+		BaseSHA:  pe.After,
+		BaseLink: fmt.Sprintf("%s/commit/%s", pe.Repo.HTMLURL, pe.After),
+	}
+}
+
 func handlePE(c Client, pe github.PushEvent) error {
 	if pe.Deleted {
 		// we should not trigger jobs for a branch deletion
@@ -55,12 +67,7 @@ func handlePE(c Client, pe github.PushEvent) error {
 		if !j.RunsAgainstChanges(changedFiles) {
 			continue
 		}
-		kr := kube.Refs{
-			Org:     pe.Repo.Owner.Name,
-			Repo:    pe.Repo.Name,
-			BaseRef: pe.Branch(),
-			BaseSHA: pe.After,
-		}
+		kr := createRefs(pe)
 		labels := make(map[string]string)
 		for k, v := range j.Labels {
 			labels[k] = v

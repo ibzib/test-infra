@@ -1,5 +1,5 @@
 import {FuzzySearch} from './fuzzy-search';
-import {Job, JobState, JobType} from "../api/prow";
+import {Job, JobState, JobType, Refs} from "../api/prow";
 import {cell} from "../common/common";
 import moment from "moment";
 
@@ -43,15 +43,17 @@ function optionsForRepo(repo: string): RepoOptions {
     for (let i = 0; i < allBuilds.length; i++) {
         const build = allBuilds[i];
         opts.types[build.type] = true;
-        opts.repos[build.repo] = true;
-        if (!repo || repo === build.repo) {
+        if (build.refs.repo) {
+            opts.repos[build.refs.repo] = true;
+        }
+        if (!repo || repo === build.refs.repo) {
             opts.jobs[build.job] = true;
             opts.states[build.state] = true;
             if (build.type === "presubmit") {
-                opts.authors[build.author] = true;
-                opts.pulls[build.number] = true;
+                opts.authors[build.refs.pulls[0].author] = true;
+                opts.pulls[build.refs.pulls[0].number] = true;
             } else if (build.type === "batch") {
-                opts.batches[shortenBuildRefs(build.refs)] = true;
+                opts.batches[shortenBuildRefs(build.refs_key)] = true;
             }
         }
     }
@@ -366,7 +368,8 @@ function equalSelected(sel: string, t: string): boolean {
 }
 
 function groupKey(build: Job): string {
-    return build.repo + " " + build.number + " " + build.refs;
+    let pr = (build.refs.pulls && build.refs.pulls.length === 1) ? build.refs.pulls[0].number : 0;
+    return build.refs.repo + " " + pr + " " + build.refs_key;
 }
 
 function redraw(fz: FuzzySearch): void {
@@ -440,7 +443,7 @@ function redraw(fz: FuzzySearch): void {
         if (!equalSelected(typeSel, build.type)) {
             continue;
         }
-        if (!equalSelected(repoSel, build.repo)) {
+        if (!equalSelected(repoSel, build.refs.repo)) {
             continue;
         }
         if (!equalSelected(stateSel, build.state)) {
@@ -450,14 +453,15 @@ function redraw(fz: FuzzySearch): void {
             continue;
         }
         if (build.type === "presubmit") {
-            if (!equalSelected(pullSel, build.number.toString())) {
+            let pull = build.refs.pulls[0];
+            if (!equalSelected(pullSel, pull.number.toString())) {
                 continue;
             }
-            if (!equalSelected(authorSel, build.author)) {
+            if (!equalSelected(authorSel, pull.author)) {
                 continue;
             }
         } else if (build.type === "batch" && !authorSel) {
-            if (!equalSelected(pullSel, shortenBuildRefs(build.refs))) {
+            if (!equalSelected(pullSel, shortenBuildRefs(build.refs_key))) {
                 continue;
             }
         } else if (pullSel || authorSel) {
@@ -493,18 +497,21 @@ function redraw(fz: FuzzySearch): void {
 
             if (build.type === "periodic") {
                 r.appendChild(cell.text(""));
-            } else if (build.repo.startsWith("http://") || build.repo.startsWith("https://") ) {
-                r.appendChild(cell.link(build.repo, build.repo));
             } else {
-                r.appendChild(cell.link(build.repo, "https://github.com/"
-                    + build.repo));
+                let repo_link = build.refs.repo_link;
+                if (!repo_link) {
+                    repo_link = "https://github.com/" + build.refs.repo;
+                }
+                r.appendChild(cell.link(build.refs.org + "/" + build.refs.repo,
+                    repo_link));
             }
             if (build.type === "presubmit") {
-                r.appendChild(cell.prRevision(build.repo, build.number, build.author, "", build.pull_sha));
+                r.appendChild(cell.prRevision(build.refs.repo, build.refs.pulls[0]));
             } else if (build.type === "batch") {
                 r.appendChild(batchRevisionCell(build));
             } else if (build.type === "postsubmit") {
-                r.appendChild(cell.commitRevision(build.repo, build.base_ref, build.base_sha));
+                r.appendChild(cell.commitRevision(build.refs.repo, build.refs.base_ref,
+                    build.refs.base_sha, build.refs.base_link));
             } else if (build.type === "periodic") {
                 r.appendChild(cell.text(""));
             }
@@ -602,15 +609,13 @@ function copyToClipboardWithToast(text: string): void {
 
 function batchRevisionCell(build: Job): HTMLTableDataCellElement {
     const c = document.createElement("td");
-    const prRefs = build.refs.split(",");
-    for (let i = 1; i < prRefs.length; i++) {
+    for (let i = 1; i < build.refs.pulls.length; i++) {
         if (i != 1) {
             c.appendChild(document.createTextNode(", "));
         }
-        const pr = prRefs[i].split(":")[0];
         const l = document.createElement("a");
-        l.href = "https://github.com/" + build.repo + "/pull/" + pr;
-        l.text = pr;
+        l.href = build.refs.pulls[i].link;
+        l.text = String(build.refs.pulls[i].number);
         c.appendChild(document.createTextNode("#"));
         c.appendChild(l);
     }

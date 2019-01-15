@@ -20,10 +20,38 @@ import (
 	"testing"
 
 	"github.com/sirupsen/logrus"
+	"k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/apimachinery/pkg/util/diff"
 	"k8s.io/test-infra/prow/config"
 	"k8s.io/test-infra/prow/github"
+
 	"k8s.io/test-infra/prow/github/fakegithub"
+	"k8s.io/test-infra/prow/kube"
 )
+
+func TestCreateRefs(t *testing.T) {
+	pe := github.PushEvent{
+		Ref: "master",
+		Repo: github.Repo{
+			Owner: github.User{
+				Name: "kubernetes",
+			},
+			Name:    "repo",
+			HTMLURL: "https://example.com/kubernetes/repo",
+		},
+		After: "abcdef",
+	}
+	expected := kube.Refs{
+		Org:      "kubernetes",
+		Repo:     "repo",
+		BaseRef:  "master",
+		BaseSHA:  "abcdef",
+		BaseLink: "https://example.com/kubernetes/repo/commit/abcdef",
+	}
+	if actual := createRefs(pe); !equality.Semantic.DeepEqual(expected, actual) {
+		t.Errorf("diff between expected and actual refs:%s", diff.ObjectReflectDiff(expected, actual))
+	}
+}
 
 func TestHandlePE(t *testing.T) {
 	testCases := []struct {

@@ -26,6 +26,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -193,13 +194,42 @@ func listChangedFiles(changeInfo client.ChangeInfo) []string {
 	return changed
 }
 
-// ProcessChange creates new presubmit prowjobs base off the gerrit changes
-func (c *Controller) ProcessChange(instance string, change client.ChangeInfo) error {
+func createRefs(reviewHost string, change client.ChangeInfo, cloneURI *url.URL, baseSHA string) (kube.Refs, error) {
 	rev, ok := change.Revisions[change.CurrentRevision]
 	if !ok {
-		return fmt.Errorf("cannot find current revision for change %v", change.ID)
+		return kube.Refs{}, fmt.Errorf("cannot find current revision for change %v", change.ID)
 	}
+	var codeHost string // Something like https://android.googlesource.com
+	parts := strings.SplitN(reviewHost, ".", 2)
+	codeHost = strings.TrimSuffix(parts[0], "-review")
+	if len(parts) > 1 {
+		codeHost += "." + parts[1]
+	}
+	kr := kube.Refs{
+		Org:      cloneURI.Host,  // Something like android-review.googlesource.com
+		Repo:     change.Project, // Something like platform/build
+		BaseRef:  change.Branch,
+		BaseSHA:  baseSHA,
+		CloneURI: cloneURI.String(), // Something like https://android-review.googlesource.com/platform/build
+		RepoLink: fmt.Sprintf("%s/%s", codeHost, change.Project),
+		BaseLink: fmt.Sprintf("%s/%s/+/%s", codeHost, change.Project, baseSHA),
+		Pulls: []kube.Pull{
+			{
+				Number:     change.Number,
+				Author:     rev.Commit.Author.Name,
+				SHA:        change.CurrentRevision,
+				Ref:        rev.Ref,
+				Link:       fmt.Sprintf("%s/c/%s/+/%d", reviewHost, change.Project, change.Number),
+				CommitLink: fmt.Sprintf("%s/%s/+/%s", codeHost, change.Project, change.CurrentRevision),
+				AuthorLink: fmt.Sprintf("%s/q/%s", reviewHost, rev.Commit.Author.Email),
+			},
+		},
+	}
+	return kr, nil
+}
 
+// ProcessChange creates new presubmit prowjobs base off the gerrit changes
+func (c *Controller) ProcessChange(instance string, change client.ChangeInfo) error {
 	logger := logrus.WithField("gerrit change", change.Number)
 
 	cloneURI, err := makeCloneURI(instance, change.Project)
@@ -214,20 +244,9 @@ func (c *Controller) ProcessChange(instance string, change client.ChangeInfo) er
 
 	triggeredJobs := []string{}
 
-	kr := kube.Refs{
-		Org:      cloneURI.Host,  // Something like android.googlesource.com
-		Repo:     change.Project, // Something like platform/build
-		BaseRef:  change.Branch,
-		BaseSHA:  baseSHA,
-		CloneURI: cloneURI.String(), // Something like https://android.googlesource.com/platform/build
-		Pulls: []kube.Pull{
-			{
-				Number: change.Number,
-				Author: rev.Commit.Author.Name,
-				SHA:    change.CurrentRevision,
-				Ref:    rev.Ref,
-			},
-		},
+	kr, err := createRefs(instance, change, cloneURI, baseSHA)
+	if err != nil {
+		return fmt.Errorf("failed to get refs: %v", err)
 	}
 
 	type jobSpec struct {

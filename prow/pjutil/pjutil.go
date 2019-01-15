@@ -19,6 +19,7 @@ package pjutil
 
 import (
 	"bytes"
+	"fmt"
 	"net/url"
 	"path"
 
@@ -65,26 +66,36 @@ func newProwJob(spec kube.ProwJobSpec, extraLabels, extraAnnotations map[string]
 	}
 }
 
+func createRefs(pr github.PullRequest, baseSHA string) kube.Refs {
+	org := pr.Base.Repo.Owner.Login
+	repo := pr.Base.Repo.Name
+	repoLink := pr.Base.Repo.HTMLURL
+	number := pr.Number
+	return kube.Refs{
+		Org:      org,
+		Repo:     repo,
+		RepoLink: repoLink,
+		BaseRef:  pr.Base.Ref,
+		BaseSHA:  baseSHA,
+		BaseLink: fmt.Sprintf("%s/commit/%s", repoLink, baseSHA),
+		Pulls: []kube.Pull{
+			{
+				Number:     number,
+				Author:     pr.User.Login,
+				SHA:        pr.Head.SHA,
+				Link:       pr.HTMLURL,
+				AuthorLink: pr.User.HTMLURL,
+				CommitLink: fmt.Sprintf("%s/pull/%d/commits/%s", repoLink, number, pr.Head.SHA),
+			},
+		},
+	}
+}
+
 // NewPresubmit converts a config.Presubmit into a kube.ProwJob.
 // The kube.Refs are configured correctly per the pr, baseSHA.
 // The eventGUID becomes a github.EventGUID label.
 func NewPresubmit(pr github.PullRequest, baseSHA string, job config.Presubmit, eventGUID string) kube.ProwJob {
-	org := pr.Base.Repo.Owner.Login
-	repo := pr.Base.Repo.Name
-	number := pr.Number
-	kr := kube.Refs{
-		Org:     org,
-		Repo:    repo,
-		BaseRef: pr.Base.Ref,
-		BaseSHA: baseSHA,
-		Pulls: []kube.Pull{
-			{
-				Number: number,
-				Author: pr.User.Login,
-				SHA:    pr.Head.SHA,
-			},
-		},
-	}
+	kr := createRefs(pr, baseSHA)
 	labels := make(map[string]string)
 	for k, v := range job.Labels {
 		labels[k] = v
