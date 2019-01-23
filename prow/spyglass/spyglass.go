@@ -195,12 +195,16 @@ func (s *Spyglass) GetPR(src string) (org, repo string, pr int, err error) {
 		err = fmt.Errorf("failed to get prow job %s/%s: %v", jobName, buildID, err)
 		return
 	}
+	if job.Spec.Refs == nil {
+		err = fmt.Errorf("no refs for job %s", job.Name)
+		return
+	}
 	if len(job.Spec.Refs.Pulls) == 0 {
-		err = fmt.Errorf("no refs found for job %s", job.Name)
+		err = fmt.Errorf("no pull found in refs for job %s", job.Name)
 		return
 	}
 	if len(job.Spec.Refs.Pulls) > 1 {
-		err = fmt.Errorf("pr history dashboard doesn't support batch jobs (yet)")
+		err = fmt.Errorf("pr history dashboard doesn't support batch jobs")
 		return
 	}
 	org = job.Spec.Refs.Org
