@@ -39,14 +39,15 @@ func TestCreateRefs(t *testing.T) {
 			Name:    "repo",
 			HTMLURL: "https://example.com/kubernetes/repo",
 		},
-		After: "abcdef",
+		After:   "abcdef",
+		Compare: "https://example.com/kubernetes/repo/compare/abcdee...abcdef",
 	}
 	expected := kube.Refs{
 		Org:      "kubernetes",
 		Repo:     "repo",
 		BaseRef:  "master",
 		BaseSHA:  "abcdef",
-		BaseLink: "https://example.com/kubernetes/repo/commit/abcdef",
+		BaseLink: "https://example.com/kubernetes/repo/compare/abcdee...abcdef",
 	}
 	if actual := createRefs(pe); !equality.Semantic.DeepEqual(expected, actual) {
 		t.Errorf("diff between expected and actual refs:%s", diff.ObjectReflectDiff(expected, actual))

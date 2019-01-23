@@ -17,8 +17,6 @@ limitations under the License.
 package trigger
 
 import (
-	"fmt"
-
 	"k8s.io/test-infra/prow/github"
 	"k8s.io/test-infra/prow/kube"
 	"k8s.io/test-infra/prow/pjutil"
@@ -50,7 +48,7 @@ func createRefs(pe github.PushEvent) kube.Refs {
 		Repo:     pe.Repo.Name,
 		BaseRef:  pe.Branch(),
 		BaseSHA:  pe.After,
-		BaseLink: fmt.Sprintf("%s/commit/%s", pe.Repo.HTMLURL, pe.After),
+		BaseLink: pe.Compare,
 	}
 }
 
