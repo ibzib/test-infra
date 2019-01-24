@@ -612,9 +612,10 @@ func renderSpyglass(sg *spyglass.Spyglass, ca *config.Agent, src string, o optio
 	prLinkText := ""
 	org, repo, pr, err := sg.GetPR(src)
 	if err == nil {
-		// TODO make link host/format configurable (along with other such links in Deck)
+		// TODO(ibzib) make link host/format configurable (along with other such links in Deck)
 		prLink = fmt.Sprintf("https://github.com/%s/%s/pull/%d", org, repo, pr)
 		prLinkText = fmt.Sprintf("%s/%s #%d", org, repo, pr)
+		// TODO(ibzib) use URL params for Gerrit compatibility
 		prHistLink = fmt.Sprintf("/pr-history/%s/%s/%d", org, repo, pr)
 	}
 
