@@ -18,6 +18,7 @@ package main
 
 import (
 	"fmt"
+	"net/url"
 	"reflect"
 	"strings"
 	"testing"
@@ -154,10 +155,10 @@ func TestUpdateCommitData(t *testing.T) {
 	}
 }
 
-func TestParsePullKey(t *testing.T) {
+func TestParsePullURL(t *testing.T) {
 	cases := []struct {
 		name   string
-		key    string
+		addr   string
 		org    string
 		repo   string
 		pr     int
@@ -165,29 +166,68 @@ func TestParsePullKey(t *testing.T) {
 	}{
 		{
 			name: "all good",
-			key:  "kubernetes/test-infra/10169",
+			addr: "https://prow.k8s.io/pr-history/kubernetes/test-infra/10169",
 			org:  "kubernetes",
 			repo: "test-infra",
 			pr:   10169,
 		},
 		{
 			name:   "3rd field needs to be PR number",
-			key:    "kubernetes/test-infra/alpha",
+			addr:   "https://prow.k8s.io/pr-history/kubernetes/test-infra/alpha",
 			expErr: true,
 		},
 		{
 			name:   "not enough parts",
-			key:    "kubernetes/10169",
+			addr:   "https://prow.k8s.io/pr-history/kubernetes/10169",
+			expErr: true,
+		},
+		{
+			name: "simple org/repo",
+			addr: "https://prow.k8s.io/pr-history?org=kubernetes&repo=test-infra&pr=10169",
+			org:  "kubernetes",
+			repo: "test-infra",
+			pr:   10169,
+		},
+		{
+			name: "Gerrit org/repo",
+			addr: "https://prow.k8s.io/pr-history?org=http://theponyapi.com&repo=test/ponies&pr=12345",
+			org:  "http://theponyapi.com",
+			repo: "test/ponies",
+			pr:   12345,
+		},
+		{
+			name:   "3rd field needs to be PR number",
+			addr:   "https://prow.k8s.io/pr-history?org=kubernetes&repo=test-infra&pr=alpha",
+			expErr: true,
+		},
+		{
+			name:   "missing org",
+			addr:   "https://prow.k8s.io/pr-history?repo=test-infra&pr=10169",
+			expErr: true,
+		},
+		{
+			name:   "missing repo",
+			addr:   "https://prow.k8s.io/pr-history?org=kubernetes&pr=10169",
+			expErr: true,
+		},
+		{
+			name:   "missing pr",
+			addr:   "https://prow.k8s.io/pr-history?org=kubernetes&repo=test-infra",
 			expErr: true,
 		},
 	}
 	for _, tc := range cases {
-		org, repo, pr, err := parsePullKey(tc.key)
+		u, err := url.Parse(tc.addr)
+		if err != nil {
+			t.Errorf("bad test URL %s: %v", tc.addr, err)
+			continue
+		}
+		org, repo, pr, err := parsePullURL(u)
 		if (err != nil) != tc.expErr {
-			t.Errorf("%s: unexpected error %v", tc.name, err)
+			t.Errorf("Test %q: unexpected error: %v", tc.name, err)
 		}
 		if org != tc.org || repo != tc.repo || pr != tc.pr {
-			t.Errorf("%s: expected %s, %s, %d; got %s, %s, %d", tc.name, tc.org, tc.repo, tc.pr, org, repo, pr)
+			t.Errorf("Test %q: expected %s, %s, %d; got %s, %s, %d", tc.name, tc.org, tc.repo, tc.pr, org, repo, pr)
 		}
 	}
 }
