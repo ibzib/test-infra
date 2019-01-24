@@ -25,6 +25,9 @@ import (
 	"github.com/fsouza/fake-gcs-server/fakestorage"
 	"github.com/sirupsen/logrus"
 
+	"k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/apimachinery/pkg/util/diff"
+
 	"k8s.io/test-infra/prow/config"
 	"k8s.io/test-infra/prow/deck/jobs"
 	"k8s.io/test-infra/prow/kube"
@@ -600,6 +603,56 @@ func TestFetchArtifactsPodLog(t *testing.T) {
 		}
 		if string(content) != "clusterA" {
 			t.Errorf("Bad pod log content for %s: %q (expected 'clusterA')", key, content)
+		}
+	}
+}
+
+func TestGetJobInfo(t *testing.T) {
+	kc := fkc{
+		kube.ProwJob{
+			Spec: kube.ProwJobSpec{
+				Agent: kube.KubernetesAgent,
+				Job:   "job",
+			},
+			Status: kube.ProwJobStatus{
+				PodName: "wowowow",
+				BuildID: "123",
+				URL:     "https://gubernator.example.com/build/job/123",
+			},
+		},
+	}
+	fakeConfigAgent := fca{
+		c: config.Config{
+			ProwConfig: config.ProwConfig{
+				Plank: config.Plank{
+					JobURLPrefix: "https://gubernator.example.com/build/",
+				},
+			},
+		},
+	}
+	plClients := map[string]jobs.PodLogClient{
+		kube.DefaultClusterAlias: fpkc("clusterA"),
+	}
+	fakeJa = jobs.NewJobAgent(kc, plClients, &config.Agent{})
+	fakeJa.Start()
+	sg := New(fakeJa, fakeConfigAgent, fakeGCSServer.Client())
+
+	cases := []struct {
+		name     string
+		src      string
+		expected JobInfo
+		expErr   bool
+	}{
+		// TODO(ibzib) add test cases
+	}
+	for _, tc := range cases {
+		actual, err := sg.GetJobInfo(tc.src)
+		if (err != nil) != tc.expErr {
+			t.Errorf("test %q: unexpected error: %v", tc.name, err)
+			continue
+		}
+		if !equality.Semantic.DeepEqual(actual, tc.expected) {
+			t.Errorf("test %q: expected does not match actual:\n%s", tc.name, diff.ObjectReflectDiff(tc.expected, actual))
 		}
 	}
 }

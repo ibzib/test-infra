@@ -1,15 +1,4 @@
-{{define "title"}}{{.JobName}} #{{.BuildID}}{{end}}
-{{define "pageTitle"}}
-  <style>
-  /* Make sure links are visible. */
-  a.title-link {
-    color: inherit;
-    text-decoration: underline;
-  }
-  </style>
-  {{if .JobHistLink}}<a href="{{.JobHistLink}}" target="_blank" class="title-link">{{.JobName}}</a>{{else}}{{.JobName}}{{end}}/{{.BuildID}}
-  {{if .PRHistLink}}triggered by <a href="{{.PRLink}}" target="_blank" class="title-link">{{.PRLinkText}}</a> (<a href="{{.PRHistLink}}" target="_blank" class="title-link">PR History</a>){{end}}
-{{end}}
+{{define "title"}}Job View {{.Source}}{{end}}
 
 {{define "scripts"}}
 <script type="text/javascript">
@@ -23,6 +12,9 @@
 
 {{define "content"}}
 {{$source:=.Source}}
+{{if .JobHistLink}}
+<h4>&nbsp;<a href="{{.JobInfo.JobHistoryLink}}">Job History</a></h4>
+{{end}}
 <div id="lens-container">
   {{range .Lenses}}
   <div class="mdl-card mdl-shadow--2dp lens-card">

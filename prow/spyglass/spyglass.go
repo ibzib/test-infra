@@ -153,65 +153,48 @@ func (s *Spyglass) JobPath(src string) (string, error) {
 	}
 }
 
-// JobInfo returns the job name and build ID for a Spyglass source
-func (s *Spyglass) JobInfo(src string) (jobName, buildID string, err error) {
-	src = strings.TrimSuffix(src, "/")
-	keyType, key, err := splitSrc(src)
-	if err != nil {
-		err = fmt.Errorf("error parsing src: %v", src)
-		return
-	}
-	// TODO(ibzib) these cases are really the same, could just collapse them
-	switch keyType {
-	case gcsKeyType:
-		parts := strings.Split(key, "/")
-		if len(parts) < 2 {
-			err = fmt.Errorf("invalid gcs key: %s", key)
-			return
-		}
-		jobName = parts[len(parts)-2]
-		buildID = parts[len(parts)-1]
-	case prowKeyType:
-		parsed := strings.Split(key, "/")
-		if len(parsed) != 2 {
-			err = fmt.Errorf("invalid prow key: %s", key)
-			return
-		}
-		jobName = parsed[0]
-		buildID = parsed[1]
-	default:
-		err = fmt.Errorf("unrecognized key type for src: %v", src)
-	}
-	return
+// JobInfo contains the information Spyglass displays about a certain Prow Job.
+// Some fields might be left empty, depending on the job type.
+type JobInfo struct {
+	JobName        string
+	BuildID        string
+	JobHistoryLink string
+	Org            string
+	Repo           string
+	PRNumber       int
+	PRLink         string
+	PRHistoryLink  string
+	GubernatorLink string
 }
 
-// GetPR returns the org, repo, and PR number and link for presubmit jobs.
-func (s *Spyglass) GetPR(src string) (org, repo string, pr int, link string, err error) {
-	jobName, buildID, err := s.JobInfo(src)
+// GetJobInfo returns information about the job specified by src.
+func (s *Spyglass) GetJobInfo(src string) (JobInfo, error) {
+	jobInfo := JobInfo{}
+	src = strings.TrimSuffix(src, "/")
+	parts := strings.Split(src, "/")
+	if len(parts) < 2 {
+		return jobInfo, fmt.Errorf("src %q too short (needs to contain job name and build ID)", src)
+	}
+	jobInfo.JobName = parts[len(parts)-2]
+	jobInfo.BuildID = parts[len(parts)-1]
+	job, err := s.jobAgent.GetProwJob(jobInfo.JobName, jobInfo.BuildID)
 	if err != nil {
-		err = fmt.Errorf("failed to get job name/id: %v", err)
-		return
+		return jobInfo, fmt.Errorf("failed to get prow job %s/%s: %v", jobInfo.JobName, jobInfo.BuildID, err)
 	}
-	job, err := s.jobAgent.GetProwJob(jobName, buildID)
+	jobInfo.GubernatorLink = job.Status.URL
+	if job.Spec.Refs != nil {
+		jobInfo.Org = job.Spec.Refs.Org
+		jobInfo.Repo = job.Spec.Refs.Repo
+		if len(job.Spec.Refs.Pulls) == 1 {
+			jobInfo.PRNumber = job.Spec.Refs.Pulls[0].Number
+			jobInfo.PRLink = job.Spec.Refs.Pulls[0].Link
+			// TODO(ibzib) use URL params for Gerrit compatibility
+			// jobInfo.PRHistoryLink = fmt.Sprintf("/pr-history/%s/%s/%d", org, repo, pr)
+		}
+	}
+	jobPath, err := s.JobPath(src)
 	if err != nil {
-		err = fmt.Errorf("failed to get prow job %s/%s: %v", jobName, buildID, err)
-		return
+		jobInfo.JobHistoryLink = path.Join("/job-history", jobPath)
 	}
-	if job.Spec.Refs == nil {
-		err = fmt.Errorf("no refs for job %s", job.Name)
-		return
-	}
-	if len(job.Spec.Refs.Pulls) == 0 {
-		err = fmt.Errorf("no pull found in refs for job %s", job.Name)
-		return
-	}
-	if len(job.Spec.Refs.Pulls) > 1 {
-		err = fmt.Errorf("pr history dashboard doesn't support batch jobs")
-		return
-	}
-	org = job.Spec.Refs.Org
-	repo = job.Spec.Refs.Repo
-	pr = job.Spec.Refs.Pulls[0].Number
-	link = job.Spec.Refs.Pulls[0].Link
-	return
+	return jobInfo, nil
 }

@@ -596,29 +596,10 @@ func renderSpyglass(sg *spyglass.Spyglass, ca *config.Agent, src string, o optio
 		lensNames = append(lensNames, l.Name())
 	}
 
-	jobName, buildID, err := sg.JobInfo(src)
+	jobInfo, err := sg.GetJobInfo(src)
 	if err != nil {
-		return "", fmt.Errorf("error getting job name/id: %v", err)
+		return "", fmt.Errorf("error getting job info: %v", err)
 	}
-
-	jobHistLink := ""
-	jobPath, err := sg.JobPath(src)
-	if err == nil {
-		jobHistLink = path.Join("/job-history", jobPath)
-	}
-
-	prLink := ""
-	prHistLink := ""
-	prLinkText := ""
-	org, repo, pr, link, err := sg.GetPR(src)
-	if err == nil {
-		prLink = link
-		prLinkText = fmt.Sprintf("%s/%s #%d", org, repo, pr)
-		// TODO(ibzib) use URL params for Gerrit compatibility
-		prHistLink = fmt.Sprintf("/pr-history/%s/%s/%d", org, repo, pr)
-	}
-
-	// TODO(ibzib) we need a Gubernator link too -- from job.Spec.Status
 
 	var viewBuf bytes.Buffer
 	type lensesTemplate struct {
@@ -626,24 +607,14 @@ func renderSpyglass(sg *spyglass.Spyglass, ca *config.Agent, src string, o optio
 		LensNames     []string
 		Source        string
 		LensArtifacts map[string][]string
-		JobHistLink   string
-		JobName       string
-		BuildID       string
-		PRLink        string
-		PRLinkText    string
-		PRHistLink    string
+		JobInfo       spyglass.JobInfo
 	}
 	lTmpl := lensesTemplate{
 		Lenses:        ls,
 		LensNames:     lensNames,
 		Source:        src,
 		LensArtifacts: viewerCache,
-		JobHistLink:   jobHistLink,
-		JobName:       jobName,
-		BuildID:       buildID,
-		PRLink:        prLink,
-		PRLinkText:    prLinkText,
-		PRHistLink:    prHistLink,
+		JobInfo:       jobInfo,
 	}
 	t := template.New("spyglass.html")
 
