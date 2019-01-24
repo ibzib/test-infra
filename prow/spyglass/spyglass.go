@@ -161,6 +161,7 @@ func (s *Spyglass) JobInfo(src string) (jobName, buildID string, err error) {
 		err = fmt.Errorf("error parsing src: %v", src)
 		return
 	}
+	// TODO(ibzib) these cases are really the same, could just collapse them
 	switch keyType {
 	case gcsKeyType:
 		parts := strings.Split(key, "/")
@@ -189,6 +190,7 @@ func (s *Spyglass) GetPR(src string) (org, repo string, pr int, link string, err
 	jobName, buildID, err := s.JobInfo(src)
 	if err != nil {
 		err = fmt.Errorf("failed to get job name/id: %v", err)
+		return
 	}
 	job, err := s.jobAgent.GetProwJob(jobName, buildID)
 	if err != nil {

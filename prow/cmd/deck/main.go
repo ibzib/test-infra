@@ -618,6 +618,8 @@ func renderSpyglass(sg *spyglass.Spyglass, ca *config.Agent, src string, o optio
 		prHistLink = fmt.Sprintf("/pr-history/%s/%s/%d", org, repo, pr)
 	}
 
+	// TODO(ibzib) we need a Gubernator link too -- from job.Spec.Status
+
 	var viewBuf bytes.Buffer
 	type lensesTemplate struct {
 		Lenses        []lenses.Lens
