@@ -184,8 +184,8 @@ func (s *Spyglass) JobInfo(src string) (jobName, buildID string, err error) {
 	return
 }
 
-// GetPR returns the org, repo, and pr number for Spyglass sources pointing to presubmit jobs
-func (s *Spyglass) GetPR(src string) (org, repo string, pr int, err error) {
+// GetPR returns the org, repo, and PR number and link for presubmit jobs.
+func (s *Spyglass) GetPR(src string) (org, repo string, pr int, link string, err error) {
 	jobName, buildID, err := s.JobInfo(src)
 	if err != nil {
 		err = fmt.Errorf("failed to get job name/id: %v", err)
@@ -210,5 +210,6 @@ func (s *Spyglass) GetPR(src string) (org, repo string, pr int, err error) {
 	org = job.Spec.Refs.Org
 	repo = job.Spec.Refs.Repo
 	pr = job.Spec.Refs.Pulls[0].Number
+	link = job.Spec.Refs.Pulls[0].Link
 	return
 }
