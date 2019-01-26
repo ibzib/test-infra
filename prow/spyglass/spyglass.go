@@ -188,12 +188,12 @@ func (s *Spyglass) GetJobInfo(src string) (JobInfo, error) {
 		if len(job.Spec.Refs.Pulls) == 1 {
 			jobInfo.PRNumber = job.Spec.Refs.Pulls[0].Number
 			jobInfo.PRLink = job.Spec.Refs.Pulls[0].Link
-			// TODO(ibzib) use URL params for Gerrit compatibility
-			// jobInfo.PRHistoryLink = fmt.Sprintf("/pr-history/%s/%s/%d", org, repo, pr)
+			jobInfo.PRHistoryLink = fmt.Sprintf("/pr-history?org=%s&repo=%s&pr=%d",
+				jobInfo.Org, jobInfo.Repo, jobInfo.PRNumber)
 		}
 	}
 	jobPath, err := s.JobPath(src)
-	if err != nil {
+	if err == nil {
 		jobInfo.JobHistoryLink = path.Join("/job-history", jobPath)
 	}
 	return jobInfo, nil

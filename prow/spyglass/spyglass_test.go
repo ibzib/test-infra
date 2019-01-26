@@ -612,12 +612,29 @@ func TestGetJobInfo(t *testing.T) {
 		kube.ProwJob{
 			Spec: kube.ProwJobSpec{
 				Agent: kube.KubernetesAgent,
-				Job:   "job",
+				Job:   "echo-test",
+				Type:  "presubmit",
+				Refs: &kube.Refs{
+					Org:  "kubernetes",
+					Repo: "test-repo",
+					Pulls: []kube.Pull{
+						{
+							Number: 456,
+							Author: "ibzib",
+							Link:   "https://example.com/kubernetes/test-repo/pull/456",
+						},
+					},
+				},
+				DecorationConfig: &kube.DecorationConfig{
+					GCSConfiguration: &kube.GCSConfiguration{
+						Bucket: "chum-bucket",
+					},
+				},
 			},
 			Status: kube.ProwJobStatus{
-				PodName: "wowowow",
+				PodName: "podrick-payne",
 				BuildID: "123",
-				URL:     "https://gubernator.example.com/build/job/123",
+				URL:     "https://gubernator.example.com/build/chum-bucket/pr-logs/pull/test-repo/456/echo-test/123",
 			},
 		},
 	}
@@ -643,7 +660,41 @@ func TestGetJobInfo(t *testing.T) {
 		expected JobInfo
 		expErr   bool
 	}{
-		// TODO(ibzib) add test cases
+		{
+			name:   "bad src",
+			src:    "bad",
+			expErr: true,
+		},
+		{
+			name: "prowjob src",
+			src:  "prowjob/echo-test/123",
+			expected: JobInfo{
+				JobName:        "echo-test",
+				BuildID:        "123",
+				JobHistoryLink: "/job-history/chum-bucket/pr-logs/directory/echo-test",
+				Org:            "kubernetes",
+				Repo:           "test-repo",
+				PRNumber:       456,
+				PRLink:         "https://example.com/kubernetes/test-repo/pull/456",
+				PRHistoryLink:  "/pr-history?org=kubernetes&repo=test-repo&pr=456",
+				GubernatorLink: "https://gubernator.example.com/build/chum-bucket/pr-logs/pull/test-repo/456/echo-test/123",
+			},
+		},
+		{
+			name: "gcs src",
+			src:  "gcs/chum-bucket/pr-logs/pull/test-repo/456/echo-test/123",
+			expected: JobInfo{
+				JobName:        "echo-test",
+				BuildID:        "123",
+				JobHistoryLink: "/job-history/chum-bucket/pr-logs/directory/echo-test",
+				Org:            "kubernetes",
+				Repo:           "test-repo",
+				PRNumber:       456,
+				PRLink:         "https://example.com/kubernetes/test-repo/pull/456",
+				PRHistoryLink:  "/pr-history?org=kubernetes&repo=test-repo&pr=456",
+				GubernatorLink: "https://gubernator.example.com/build/chum-bucket/pr-logs/pull/test-repo/456/echo-test/123",
+			},
+		},
 	}
 	for _, tc := range cases {
 		actual, err := sg.GetJobInfo(tc.src)
@@ -652,7 +703,7 @@ func TestGetJobInfo(t *testing.T) {
 			continue
 		}
 		if !equality.Semantic.DeepEqual(actual, tc.expected) {
-			t.Errorf("test %q: expected does not match actual:\n%s", tc.name, diff.ObjectReflectDiff(tc.expected, actual))
+			t.Errorf("test %q: expected does not match actual:%s", tc.name, diff.ObjectReflectDiff(tc.expected, actual))
 		}
 	}
 }
